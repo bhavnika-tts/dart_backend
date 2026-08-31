@@ -14,3 +14,7 @@ build/
 
 # Test related files
 coverage/
+
+# Environment files
+.env
+.env.*

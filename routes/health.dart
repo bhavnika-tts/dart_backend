@@ -6,10 +6,7 @@ Response onRequest(RequestContext context) {
     return Response(statusCode: HttpStatus.methodNotAllowed);
   }
 
-  return Response.json(
-    body: {
-      'status': 'ok',
-      'message': 'Classicale Backend API is running',
-    },
+  return Response(
+    body: 'OK',
   );
 }

@@ -1,17 +1,16 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
-import '../../routes/index.dart' as route;
+import '../../routes/health.dart' as route;
 
 class _MockRequestContext extends Mock implements RequestContext {}
 class _MockRequest extends Mock implements Request {}
 
 void main() {
-  group('GET /', () {
-    test('responds with 200 and JSON status ok', () async {
+  group('GET /health', () {
+    test('responds with 200 and OK string', () async {
       final context = _MockRequestContext();
       final request = _MockRequest();
 
@@ -20,12 +19,7 @@ void main() {
 
       final response = route.onRequest(context);
       expect(response.statusCode, equals(HttpStatus.ok));
-
-      final bodyString = await response.body();
-      final json = jsonDecode(bodyString) as Map<String, dynamic>;
-
-      expect(json['status'], equals('ok'));
-      expect(json['message'], equals('Classicale Backend API is running'));
+      expect(await response.body(), equals('OK'));
     });
   });
 }
