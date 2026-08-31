@@ -141,9 +141,9 @@ dart_frog_backend/
 
 ---
 
-### 🟢 Phase 4: Auth, OTP, User Profiles & Permissions
-- [ ] **4.1 `/api/otp/send` & `/api/otp/verify`**:
-  - SMS gateway integration, Redis rate limiting, 6-digit OTP verification.
+### 🟢 Phase 4: Auth, OTP (Email SMTP), User Profiles & Permissions
+- [ ] **4.1 `/api/otp/forgot-password`, `/api/otp/verify-otp`, `/api/otp/change-password`**:
+  - Email SMTP gateway (`package:mailer` with branded HTML templates), Redis rate limiting & cooldown, 6-digit OTP verification.
 - [ ] **4.2 `/api/user` Profile System**:
   - Registration, Login, Profile updates, Referral code generation, Category restrictions & permissions.
 - [ ] **4.3 Verification & Aadhaar Pipeline**:
