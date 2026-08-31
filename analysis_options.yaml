@@ -1,7 +1,16 @@
 include: package:dart_frog_lint/recommended.yaml
 
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    avoid_dynamic_calls: ignore
+
 linter:
   rules:
     public_member_api_docs: false
     lines_longer_than_80_chars: false
     avoid_print: false
+    avoid_redundant_argument_values: false
+    always_use_package_imports: false
+    always_put_required_named_parameters_first: false
+    prefer_constructors_over_static_methods: false

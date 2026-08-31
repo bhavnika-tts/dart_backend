@@ -132,7 +132,6 @@ class CryptoService {
     final params = Argon2Parameters(
       Argon2Parameters.ARGON2_id,
       salt,
-      version: Argon2Parameters.ARGON2_VERSION_13,
       iterations: iterations,
       memory: memory,
       lanes: parallelism,
@@ -172,11 +171,7 @@ class CryptoService {
       }
 
       String normalizeBase64(String str) {
-        var s = str;
-        while (s.length % 4 != 0) {
-          s += '=';
-        }
-        return s;
+        return str.padRight((str.length + 3) ~/ 4 * 4, '=');
       }
 
       final saltBytes =
@@ -188,7 +183,6 @@ class CryptoService {
       final params = Argon2Parameters(
         Argon2Parameters.ARGON2_id,
         saltBytes,
-        version: Argon2Parameters.ARGON2_VERSION_13,
         iterations: iterations,
         memory: memory,
         lanes: parallelism,
