@@ -188,27 +188,30 @@ class ProductService {
     String? cursorId,
     String? search,
     String? category,
+    String? productType,
+    String? subProductType,
     String? state,
     String? district,
     String? locationName,
   }) async {
     final user = await _userRepo.findById(userId);
-    if (user == null) {
-      throw StateError('User not found');
-    }
 
-    final userPerms = await _userRepo.getUserPermissions(userId);
-    final allowedCategories = (user.role == 'superadmin' || user.role == 'admin')
+    final userPerms = userId != 'admin' && user != null
+        ? await _userRepo.getUserPermissions(userId)
+        : null;
+    final allowedCategories = (user == null || user.role == 'superadmin' || user.role == 'admin')
         ? null
-        : userPerms.read;
+        : userPerms?.read;
 
     final products = await _productRepo.findProducts(
       search: search,
       category: category,
+      productType: productType,
+      subProductType: subProductType,
       state: state,
       district: district,
       locationName: locationName,
-      excludeUserId: user.role == 'user' ? userId : null,
+      excludeUserId: user?.role == 'user' ? userId : null,
       allowedCategories: allowedCategories,
       limit: limit,
       page: page,
