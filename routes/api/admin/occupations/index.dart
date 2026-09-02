@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
+import 'package:dart_frog_backend/models/occupation.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -10,13 +11,12 @@ Future<Response> onRequest(RequestContext context) async {
   if (context.request.method == HttpMethod.get) {
     try {
       final list = await col.find(where.sortBy('name')).toList();
+      final mapped = list.map((doc) => Occupation.fromBson(doc).toJson()).toList();
       return Response.json(
         body: {
           'success': true,
-          'occupations': list.map((doc) => {
-                ...doc,
-                '_id': doc['_id'] is ObjectId ? (doc['_id'] as ObjectId).toHexString() : doc['_id']?.toString(),
-              }).toList(),
+          'data': mapped,
+          'occupations': mapped,
         },
       );
     } catch (e) {

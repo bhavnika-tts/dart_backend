@@ -2,21 +2,58 @@ import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
+import 'package:dart_frog_backend/models/model_helpers.dart';
+import 'package:dart_frog_backend/models/sub_product_type.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
-  final col = MongoClient.instance.collection('subproducttypes');
+  final subCol = MongoClient.instance.collection('subproducttypes');
+  final prodTypeCol = MongoClient.instance.collection('producttypes');
 
   if (context.request.method == HttpMethod.get) {
     try {
-      final list = await col.find(where.sortBy('name')).toList();
+      final query = context.request.uri.queryParameters;
+      final all = query['all'] == 'true';
+
+      var selector = where.ne('isDeleted', true);
+
+      if (!all) {
+        final otherType = await prodTypeCol.findOne(where.match('modelName', '^other\$', caseInsensitive: true));
+        if (otherType != null) {
+          selector = selector.eq('productType', otherType['_id']);
+        }
+      }
+
+      final list = await subCol.find(selector).toList();
+      final prodTypes = await prodTypeCol.find().toList();
+      final prodTypeMap = <String, Map<String, dynamic>>{};
+
+      for (final pt in prodTypes) {
+        final id = ModelHelpers.idToString(pt['_id']);
+        if (id != null) {
+          prodTypeMap[id] = {
+            '_id': id,
+            'name': pt['name']?.toString() ?? '',
+            'modelName': pt['modelName']?.toString() ?? '',
+          };
+        }
+      }
+
+      final mapped = list.map((doc) {
+        final sub = SubProductType.fromBson(doc);
+        final json = sub.toJson();
+        final ptId = sub.productType;
+        if (prodTypeMap.containsKey(ptId)) {
+          json['productType'] = prodTypeMap[ptId];
+        }
+        return json;
+      }).toList();
+
       return Response.json(
         body: {
           'success': true,
-          'sub_product_types': list.map((doc) => {
-                ...doc,
-                '_id': doc['_id'] is ObjectId ? (doc['_id'] as ObjectId).toHexString() : doc['_id']?.toString(),
-              }).toList(),
+          'data': mapped,
+          'sub_product_types': mapped,
         },
       );
     } catch (e) {
@@ -39,7 +76,7 @@ Future<Response> onRequest(RequestContext context) async {
 
     try {
       final body = await context.request.json() as Map<String, dynamic>;
-      final result = await col.insertOne(body);
+      final result = await subCol.insertOne(body);
       return Response.json(
         body: {
           'success': true,
