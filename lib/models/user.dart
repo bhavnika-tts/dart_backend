@@ -148,6 +148,7 @@ class User {
   final List<String> country;
   final List<String> state;
   final List<String> city;
+  List<String> get district => city;
   final List<String> area;
   final List<String> street1;
   final List<String> street2;

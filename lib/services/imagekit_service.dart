@@ -153,6 +153,9 @@ class ImageKitService {
   }
 
   /// Permanently deletes an asset from ImageKit using its file registry record.
+  Future<bool> deleteFile(String url) => deleteFromImageKit(url);
+
+  /// Permanently deletes an asset from ImageKit using its file registry record.
   Future<bool> deleteFromImageKit(String url) async {
     if (url.isEmpty || !url.contains('ik.imagekit.io')) return false;
 
