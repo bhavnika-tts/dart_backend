@@ -12,7 +12,7 @@ class AboutUsRepository {
   static AboutUsRepository? _instance;
   static AboutUsRepository get instance => _instance ??= AboutUsRepository();
 
-  DbCollection get _collection => _mongoClient.collection('about_us');
+  DbCollection get _collection => _mongoClient.collection('aboutus');
 
   Future<AboutUs?> findAboutUs() async {
     final doc = await _collection.findOne();

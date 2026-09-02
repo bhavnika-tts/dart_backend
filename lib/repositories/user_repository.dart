@@ -16,8 +16,8 @@ class UserRepository {
   static UserRepository get instance => _instance ??= UserRepository();
 
   DbCollection get _usersCollection => _mongoClient.collection('users');
-  DbCollection get _categoriesCollection => _mongoClient.collection('user_category_permissions');
-  DbCollection get _restrictionsCollection => _mongoClient.collection('category_restrictions');
+  DbCollection get _categoriesCollection => _mongoClient.collection('usercategorypermissions');
+  DbCollection get _restrictionsCollection => _mongoClient.collection('categoryrestrictions');
   DbCollection get _occupationsCollection => _mongoClient.collection('occupations');
 
   Future<User?> findByEmailAndCategory(String email, String userCategory) async {
@@ -90,7 +90,7 @@ class UserRepository {
   }
 
   Future<List<UserCategoryPermission>> getPublicUserCategories() async {
-    final cursor = _categoriesCollection.find(where.eq('isActive', true));
+    final cursor = _categoriesCollection.find(where.ne('isHidden', true));
     final list = await cursor.toList();
     return list.map(UserCategoryPermission.fromBson).toList();
   }

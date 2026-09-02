@@ -8,6 +8,9 @@ class ModelHelpers {
     if (id is ObjectId) return id.toHexString();
     if (id is String) {
       if (id.isEmpty) return null;
+      if (id.startsWith('ObjectId("') && id.endsWith('")')) {
+        return id.substring(10, id.length - 2);
+      }
       return id;
     }
     if (id is Map && id.containsKey(r'$oid')) {
@@ -88,10 +91,14 @@ class ModelHelpers {
   static List<String> parseStringList(dynamic list) {
     if (list == null) return [];
     if (list is List) {
-      return list.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      return list
+          .map((e) => idToString(e) ?? e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     if (list is String && list.isNotEmpty) {
-      return [list];
+      final s = idToString(list) ?? list;
+      return [s];
     }
     return [];
   }

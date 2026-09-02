@@ -19,9 +19,9 @@ class ProductRepository {
 
   DbCollection get _productsCollection => _mongoClient.collection('products');
   DbCollection get _usersCollection => _mongoClient.collection('users');
-  DbCollection get _productTypesCollection => _mongoClient.collection('product_types');
-  DbCollection get _subProductTypesCollection => _mongoClient.collection('sub_product_types');
-  DbCollection get _formMetadataCollection => _mongoClient.collection('form_metadatas');
+  DbCollection get _productTypesCollection => _mongoClient.collection('producttypes');
+  DbCollection get _subProductTypesCollection => _mongoClient.collection('subproducttypes');
+  DbCollection get _formMetadataCollection => _mongoClient.collection('formmetadatas');
 
   Future<Product?> findById(String id) async {
     final objId = ModelHelpers.toObjectId(id);

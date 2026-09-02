@@ -13,7 +13,7 @@ class AppGuideVideoRepository {
   static AppGuideVideoRepository? _instance;
   static AppGuideVideoRepository get instance => _instance ??= AppGuideVideoRepository();
 
-  DbCollection get _collection => _mongoClient.collection('app_guide_videos');
+  DbCollection get _collection => _mongoClient.collection('appguidevideos');
 
   Future<AppGuideVideo?> findVisible() async {
     final doc = await _collection.findOne(

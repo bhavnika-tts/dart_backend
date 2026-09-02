@@ -13,7 +13,7 @@ class FeedbackRepository {
   static FeedbackRepository? _instance;
   static FeedbackRepository get instance => _instance ??= FeedbackRepository();
 
-  DbCollection get _collection => _mongoClient.collection('feature_requests');
+  DbCollection get _collection => _mongoClient.collection('featurerequests');
 
   Future<FeatureRequest> create(FeatureRequest request) async {
     final doc = request.toBson();

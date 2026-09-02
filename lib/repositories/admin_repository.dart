@@ -22,14 +22,14 @@ class AdminRepository {
   static AdminRepository get instance => _instance ??= AdminRepository();
 
   DbCollection get _adminsCollection => _mongoClient.collection('admins');
-  DbCollection get _permissionsCollection => _mongoClient.collection('admin_permissions');
-  DbCollection get _auditLogsCollection => _mongoClient.collection('admin_audit_logs');
+  DbCollection get _permissionsCollection => _mongoClient.collection('adminpermissions');
+  DbCollection get _auditLogsCollection => _mongoClient.collection('adminauditlogs');
   DbCollection get _usersCollection => _mongoClient.collection('users');
   DbCollection get _productReportsCollection => _mongoClient.collection('report_products');
-  DbCollection get _chatReportsCollection => _mongoClient.collection('chat_reports');
+  DbCollection get _chatReportsCollection => _mongoClient.collection('chatreports');
   DbCollection get _ratingsCollection => _mongoClient.collection('ratings');
-  DbCollection get _supportChatsCollection => _mongoClient.collection('support_chats');
-  DbCollection get _supportMessagesCollection => _mongoClient.collection('support_messages');
+  DbCollection get _supportChatsCollection => _mongoClient.collection('supportchats');
+  DbCollection get _supportMessagesCollection => _mongoClient.collection('supportmessages');
 
   // ── Admin & Subadmin Queries ───────────────────────────────────────────────
 

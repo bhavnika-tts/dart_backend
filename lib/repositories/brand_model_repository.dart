@@ -20,7 +20,7 @@ class BrandModelRepository {
   static BrandModelRepository? _instance;
   static BrandModelRepository get instance => _instance ??= BrandModelRepository();
 
-  DbCollection get _collection => _mongoClient.collection('brand_models');
+  DbCollection get _collection => _mongoClient.collection('brandmodels');
 
   static const _cacheTtl = Duration(hours: 1);
   final _brandsCache = <String, _CacheEntry<List<String>>>{};

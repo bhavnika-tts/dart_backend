@@ -12,6 +12,7 @@ Future<Response> onRequest(RequestContext context) async {
     return Response.json(
       body: {
         'success': true,
+        'categories': categories,
         'data': categories,
       },
     );
