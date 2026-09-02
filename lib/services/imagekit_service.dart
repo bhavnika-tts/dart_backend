@@ -37,9 +37,16 @@ class ImageKitService {
       final expiry = (DateTime.now().millisecondsSinceEpoch ~/ 1000) + expiresIn;
       final expiryStr = expiry.toString();
 
-      // ImageKit signature: HMAC-SHA1(privateKey, path + expiryTimestamp)
-      // Path includes leading slash after the endpoint domain
-      final pathPart = uri.path;
+      // Extract path relative to ImageKit endpoint without leading slash
+      var pathPart = uri.path;
+      if (pathPart.startsWith('/')) {
+        pathPart = pathPart.substring(1);
+      }
+      final firstSlash = pathPart.indexOf('/');
+      if (firstSlash != -1 && uri.host.contains('imagekit.io')) {
+        pathPart = pathPart.substring(firstSlash + 1);
+      }
+
       final stringToSign = '$pathPart$expiryStr';
 
       final hmac = Hmac(sha1, utf8.encode(_privateKey));
@@ -47,7 +54,7 @@ class ImageKitService {
       final signature = digest.toString();
 
       final separator = uri.queryParameters.isEmpty ? '?' : '&';
-      return '$cleanUrl$separator ik-s=$signature&ik-t=$expiryStr'.replaceAll(' ', '');
+      return '$cleanUrl${separator}ik-s=$signature&ik-t=$expiryStr';
     } catch (_) {
       return url;
     }
