@@ -18,7 +18,7 @@ Future<Response> onRequest(RequestContext context) async {
       var selector = where.ne('isDeleted', true);
 
       if (!all) {
-        final otherType = await prodTypeCol.findOne(where.match('modelName', '^other\$', caseInsensitive: true));
+        final otherType = await prodTypeCol.findOne(where.match('modelName', r'^other$', caseInsensitive: true));
         if (otherType != null) {
           selector = selector.eq('productType', otherType['_id']);
         }

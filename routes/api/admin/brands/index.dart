@@ -10,11 +10,25 @@ Future<Response> onRequest(RequestContext context) async {
 
   if (context.request.method == HttpMethod.get) {
     try {
-      final list = await col.find(where.sortBy('brand')).toList();
+      final query = context.request.uri.queryParameters;
+      final productType = query['productType'];
+
+      var selector = where.sortBy('displayOrder').sortBy('brand');
+      if (productType != null && productType.isNotEmpty) {
+        if (productType.contains(',')) {
+          final types = productType.split(',').map((t) => t.trim().toLowerCase()).toList();
+          selector = where.oneFrom('productType', types).sortBy('displayOrder').sortBy('brand');
+        } else {
+          selector = where.eq('productType', productType.trim().toLowerCase()).sortBy('displayOrder').sortBy('brand');
+        }
+      }
+
+      final list = await col.find(selector).toList();
       final mapped = list.map((doc) => BrandModel.fromBson(doc).toJson()).toList();
       return Response.json(
         body: {
           'success': true,
+          'entries': mapped,
           'data': mapped,
           'brands': mapped,
         },
