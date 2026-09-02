@@ -33,6 +33,13 @@ Handler middleware(Handler handler) {
     }
 
     try {
+      // Ensure MongoDB connection is established
+      if (!MongoClient.instance.isConnected) {
+        try {
+          await MongoClient.instance.connect();
+        } catch (_) {}
+      }
+
       // Execute inner handler pipeline with injected core services
       final response = await handler(
         context
