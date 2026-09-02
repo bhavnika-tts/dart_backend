@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dart_frog_backend/core/config/env.dart';
 import 'package:resp_client/resp_client.dart';
 import 'package:resp_client/resp_commands.dart';
@@ -60,6 +61,17 @@ class RedisService {
     return entry.value;
   }
 
+  /// Get JSON parsed value
+  Future<T?> getJson<T>(String key) async {
+    final raw = await get(key);
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw) as T;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Set value with optional TTL duration
   Future<void> set(String key, String value, {Duration? ttl}) async {
     if (_isConnected && _client != null) {
@@ -79,6 +91,27 @@ class RedisService {
       value: value,
       expiresAt: ttl != null ? DateTime.now().add(ttl) : null,
     );
+  }
+
+  /// Set value with TTL in seconds
+  Future<void> setEx(String key, String value, int seconds) async {
+    await set(key, value, ttl: Duration(seconds: seconds));
+  }
+
+  /// Set JSON value with TTL in seconds
+  Future<void> setExJson(String key, Object value, int seconds) async {
+    await set(key, jsonEncode(value), ttl: Duration(seconds: seconds));
+  }
+
+  /// Returns remaining TTL in seconds (or 0 if expired/not found)
+  Future<int> ttl(String key) async {
+    final entry = _memoryCache[key];
+    if (entry != null) {
+      if (entry.expiresAt == null) return -1;
+      final remainingMs = entry.expiresAt!.difference(DateTime.now()).inMilliseconds;
+      return remainingMs > 0 ? (remainingMs / 1000).ceil() : 0;
+    }
+    return 0;
   }
 
   /// Delete key

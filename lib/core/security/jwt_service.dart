@@ -10,6 +10,8 @@ class UserAuth {
     this.tokenVersion,
     this.phone,
     this.userNo,
+    this.email,
+    this.sessionToken,
     this.rawClaims = const {},
   });
 
@@ -29,6 +31,8 @@ class UserAuth {
           : int.tryParse(payload['tokenVersion']?.toString() ?? ''),
       phone: payload['phone']?.toString(),
       userNo: payload['userNo']?.toString(),
+      email: payload['email']?.toString(),
+      sessionToken: payload['sessionToken']?.toString(),
       rawClaims: payload,
     );
   }
@@ -38,8 +42,11 @@ class UserAuth {
   final int? tokenVersion;
   final String? phone;
   final String? userNo;
+  final String? email;
+  final String? sessionToken;
   final Map<String, dynamic> rawClaims;
 
+  String get userId => id;
   bool get isAdmin =>
       role == 'superadmin' || role == 'admin' || role == 'subadmin';
   bool get isSuperAdmin => role == 'superadmin';
@@ -69,6 +76,25 @@ class JwtService {
     return jwt.sign(
       SecretKey(_secret),
       expiresIn: expiresIn,
+    );
+  }
+
+  /// Generate token with user claims
+  String signToken({
+    required String userId,
+    required String email,
+    required String role,
+    String? sessionToken,
+    int? tokenVersion,
+  }) {
+    return sign(
+      id: userId,
+      role: role,
+      extraClaims: {
+        'email': email,
+        if (sessionToken != null) 'sessionToken': sessionToken,
+        if (tokenVersion != null) 'tokenVersion': tokenVersion,
+      },
     );
   }
 
@@ -102,6 +128,16 @@ class JwtService {
     } catch (e) {
       if (e is AppError) rethrow;
       throw AppError.unauthorized('Authentication failed.');
+    }
+  }
+
+  /// Safely verifies Authorization header string, returning null if invalid or missing.
+  UserAuth? verifyAuthHeader(String? authHeader) {
+    if (authHeader == null || authHeader.isEmpty) return null;
+    try {
+      return verify(authHeader);
+    } catch (_) {
+      return null;
     }
   }
 

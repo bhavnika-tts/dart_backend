@@ -94,6 +94,12 @@ class CryptoService {
     }
   }
 
+  /// Encrypts plaintext using AES-256-GCM.
+  String encryptAesGcm(String? plaintext) => encrypt(plaintext);
+
+  /// Decrypts ciphertext produced by `encrypt()` or Node.js crypto.
+  String decryptAesGcm(String? ciphertext) => decrypt(ciphertext);
+
   // ──────────────────────────────────────────────────────────────────────────
   // Aadhaar Masking Utility
   // ──────────────────────────────────────────────────────────────────────────
@@ -107,6 +113,9 @@ class CryptoService {
     final last4 = digits.substring(digits.length - 4);
     return 'XXXX-XXXX-$last4';
   }
+
+  /// Instance method for Aadhaar masking
+  String mask(String? aadhaar) => maskAadhaar(aadhaar);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Argon2id + Pepper Password Hashing
