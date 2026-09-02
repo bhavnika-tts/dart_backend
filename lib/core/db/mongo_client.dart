@@ -4,11 +4,31 @@ import 'package:mongo_dart/mongo_dart.dart';
 
 /// Resilient MongoDB connection manager wrapping `mongo_dart`.
 class MongoClient {
-  MongoClient({String? uri}) : _uri = uri ?? EnvConfig.instance.mongoDbUrl;
+  MongoClient({String? uri}) : _rawUri = uri ?? EnvConfig.instance.mongoDbUrl {
+    _uri = _normalizeUri(_rawUri);
+  }
 
-  final String _uri;
+  final String _rawUri;
+  late final String _uri;
   Db? _db;
-  bool _isConnecting = false;
+  Completer<Db>? _connectCompleter;
+
+  static String _normalizeUri(String uri) {
+    if (uri.isEmpty) return uri;
+    var result = uri;
+    final isAtlas = uri.contains('mongodb+srv://') || uri.contains('mongodb.net');
+    if (isAtlas) {
+      if (!result.contains('safeAtlas=')) {
+        final sep = result.contains('?') ? '&' : '?';
+        result = '$result${sep}safeAtlas=true';
+      }
+      if (!result.contains('tls=') && !result.contains('ssl=')) {
+        final sep = result.contains('?') ? '&' : '?';
+        result = '$result${sep}tls=true';
+      }
+    }
+    return result;
+  }
 
   Db get db {
     final currentDb = _db;
@@ -20,33 +40,42 @@ class MongoClient {
 
   bool get isConnected => _db?.isConnected ?? false;
 
-  /// Connect to MongoDB with timeout and retry logic
+  /// Connect to MongoDB with singleton completer to serialize concurrent connections
   Future<Db> connect() async {
     if (_db != null && _db!.isConnected) {
       return _db!;
     }
 
-    if (_isConnecting) {
-      // Wait for in-flight connection attempt
-      while (_isConnecting) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
-      if (_db != null && _db!.isConnected) return _db!;
+    if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
+      return _connectCompleter!.future;
     }
 
-    _isConnecting = true;
+    final completer = Completer<Db>();
+    _connectCompleter = completer;
+
     try {
       print('🔄 Connecting to MongoDB: ${_sanitizeUri(_uri)}');
+      if (_db != null) {
+        try {
+          await _db!.close();
+        } catch (_) {}
+        _db = null;
+      }
+
       final db = await Db.create(_uri);
-      await db.open();
+      final isSecure = _uri.contains('mongodb+srv://') ||
+          _uri.contains('tls=true') ||
+          _uri.contains('ssl=true');
+      await db.open(secure: isSecure);
       _db = db;
       print('✅ Connected to MongoDB successfully.');
+      completer.complete(db);
       return db;
     } catch (e) {
       print('💥 MongoDB connection error: $e');
+      completer.completeError(e);
+      _connectCompleter = null;
       rethrow;
-    } finally {
-      _isConnecting = false;
     }
   }
 
@@ -57,8 +86,10 @@ class MongoClient {
 
   /// Disconnect cleanly
   Future<void> close() async {
-    if (_db != null && _db!.isConnected) {
-      await _db!.close();
+    if (_db != null) {
+      try {
+        await _db!.close();
+      } catch (_) {}
       _db = null;
       print('🔌 Closed MongoDB connection.');
     }
