@@ -55,7 +55,7 @@ class UserCategoryPermission {
         if (id != null) '_id': id,
         'categoryKey': categoryKey,
         'label': label,
-        'displayName': (label.isNotEmpty ? label : (displayName?.isNotEmpty == true ? displayName! : categoryKey)),
+        'displayName': (label.isNotEmpty ? label : (displayName ?? categoryKey)),
         'read': read,
         'write': write,
         'requiresAdminVerification': requiresAdminVerification,
