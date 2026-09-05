@@ -53,7 +53,6 @@ Future<Response> onRequest(RequestContext context) async {
         body: {
           'success': true,
           'data': mapped,
-          'sub_product_types': mapped,
         },
       );
     } catch (e) {
@@ -67,27 +66,85 @@ Future<Response> onRequest(RequestContext context) async {
   if (context.request.method == HttpMethod.post) {
     final authHeader = context.request.headers['authorization'];
     final claims = JwtService.instance.verifyAuthHeader(authHeader);
-    if (claims == null || claims.role != 'superadmin') {
+    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin' && claims.role != 'admin')) {
       return Response.json(
         statusCode: HttpStatus.forbidden,
-        body: {'message': 'Superadmin access required'},
+        body: {'message': 'Admin access required'},
       );
     }
 
     try {
       final body = await context.request.json() as Map<String, dynamic>;
-      final result = await subCol.insertOne(body);
+      final name = body['name']?.toString() ?? '';
+      final productType = body['productType']?.toString() ?? '';
+
+      if (name.isEmpty || productType.isEmpty) {
+        return Response.json(
+          statusCode: HttpStatus.badRequest,
+          body: {'message': 'Name and Category (productType ID) are required'},
+        );
+      }
+
+      final ptObjId = ModelHelpers.toObjectId(productType) ?? productType;
+      final existing = await subCol.findOne({
+        'name': {'\$regex': '^$name\$', '\$options': 'i'},
+        'productType': ptObjId,
+        'isDeleted': {'\$ne': true},
+      });
+
+      if (existing != null) {
+        return Response.json(
+          statusCode: HttpStatus.badRequest,
+          body: {'message': 'A sub-category with this name already exists under this category'},
+        );
+      }
+
+      final doc = <String, dynamic>{
+        'name': name,
+        'productType': ptObjId,
+        'isDeleted': false,
+        'createdAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      };
+      if (claims.userId.isNotEmpty) {
+        final adminObj = ModelHelpers.toObjectId(claims.userId);
+        doc['lastEditedBy'] = adminObj;
+        doc['history'] = [
+          {'updatedBy': adminObj, 'updatedAt': DateTime.now()}
+        ];
+      }
+
+      final insertRes = await subCol.insertOne(doc);
+      final newId = insertRes.id;
+
+      final ptDoc = await prodTypeCol.findOne(where.eq('_id', ptObjId));
+      final populated = <String, dynamic>{
+        '_id': ModelHelpers.idToString(newId),
+        'name': name,
+        'productType': ptDoc != null
+            ? {
+                '_id': ModelHelpers.idToString(ptDoc['_id']),
+                'name': ptDoc['name']?.toString() ?? '',
+                'modelName': ptDoc['modelName']?.toString() ?? '',
+              }
+            : productType,
+        'isDeleted': false,
+        'createdAt': ModelHelpers.toIsoString(doc['createdAt'] as DateTime),
+        'updatedAt': ModelHelpers.toIsoString(doc['updatedAt'] as DateTime),
+      };
+
       return Response.json(
+        statusCode: HttpStatus.created,
         body: {
+          'message': 'Sub-category created successfully',
           'success': true,
-          'message': 'Sub product type created',
-          'id': result.id.toString(),
+          'data': populated,
         },
       );
     } catch (e) {
       return Response.json(
         statusCode: HttpStatus.internalServerError,
-        body: {'message': 'Failed to create sub product type', 'error': e.toString()},
+        body: {'message': 'Server error!', 'error': e.toString()},
       );
     }
   }

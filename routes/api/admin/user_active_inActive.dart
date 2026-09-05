@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
-import 'package:dart_frog_backend/repositories/admin_repository.dart';
+import 'package:dart_frog_backend/models/model_helpers.dart';
+import 'package:dart_frog_backend/utils/mongo_sanitizer.dart';
+import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.post) {
@@ -18,29 +21,54 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final body = await context.request.json() as Map<String, dynamic>;
-    final userId = body['userId']?.toString().trim() ?? '';
-    final isActive = body['isActive'] == true || body['active'] == true || body['status'] == 'Active';
+    final query = context.request.uri.queryParameters;
+    String userId = query['userId']?.toString().trim() ?? '';
+    if (userId.isEmpty) {
+      try {
+        final body = await context.request.json() as Map<String, dynamic>;
+        userId = body['userId']?.toString().trim() ?? '';
+      } catch (_) {}
+    }
 
     if (userId.isEmpty) {
       return Response.json(
         statusCode: HttpStatus.badRequest,
-        body: {'message': 'userId is required'},
+        body: {'message': 'User ID is required'},
       );
     }
 
-    await AdminRepository.instance.toggleUserActive(userId, isActive: isActive);
+    final userCol = MongoClient.instance.collection('users');
+    final userObjId = ModelHelpers.toObjectId(userId);
+    final user = await userCol.findOne(userObjId != null ? where.id(userObjId) : where.eq('_id', userId));
+
+    if (user == null) {
+      return Response.json(
+        statusCode: HttpStatus.notFound,
+        body: {'message': 'User not found'},
+      );
+    }
+
+    final currentActive = user['isActive'] == true;
+    final newActive = !currentActive;
+
+    await userCol.updateOne(
+      where.id(user['_id'] as ObjectId),
+      modify.set('isActive', newActive).set('updatedAt', DateTime.now().toUtc()),
+    );
+
+    final updated = await userCol.findOne(where.id(user['_id'] as ObjectId));
+    final sanitizedUser = sanitizeMongoData(updated ?? user) as Map<String, dynamic>;
 
     return Response.json(
       body: {
-        'success': true,
-        'message': isActive ? 'User activated successfully' : 'User deactivated successfully',
+        'message': 'User ${newActive ? "activated" : "deactivated"} successfully',
+        'user': sanitizedUser,
       },
     );
   } catch (error) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,
-      body: {'message': 'Operation failed', 'error': error.toString()},
+      body: {'message': 'Server error', 'error': error.toString()},
     );
   }
 }

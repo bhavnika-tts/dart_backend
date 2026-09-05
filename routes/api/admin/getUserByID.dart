@@ -7,33 +7,27 @@ import 'package:dart_frog_backend/utils/mongo_sanitizer.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
-  if (context.request.method != HttpMethod.post) {
+  if (context.request.method != HttpMethod.get) {
     return Response(statusCode: HttpStatus.methodNotAllowed);
   }
 
   try {
     final authHeader = context.request.headers['authorization'];
     final claims = JwtService.instance.verifyAuthHeader(authHeader);
-    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin' && claims.role != 'admin')) {
+    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin')) {
       return Response.json(
-        statusCode: HttpStatus.forbidden,
-        body: {'message': 'Admin access required'},
+        statusCode: HttpStatus.unauthorized,
+        body: {'message': 'Unauthorized'},
       );
     }
 
     final query = context.request.uri.queryParameters;
-    String userId = query['userId']?.toString().trim() ?? '';
-    if (userId.isEmpty) {
-      try {
-        final body = await context.request.json() as Map<String, dynamic>;
-        userId = body['userId']?.toString().trim() ?? '';
-      } catch (_) {}
-    }
+    final userId = query['userId'];
 
-    if (userId.isEmpty) {
+    if (userId == null || userId.isEmpty) {
       return Response.json(
         statusCode: HttpStatus.badRequest,
-        body: {'message': 'User ID is required'},
+        body: {'message': 'userId is required'},
       );
     }
 
@@ -48,27 +42,42 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final currentBlocked = user['isBlocked'] == true;
-    final newBlocked = !currentBlocked;
+    if (claims.role == 'subadmin') {
+      final assigned = user['assignedByAdmin']?.toString();
+      if (assigned != claims.userId) {
+        return Response.json(
+          statusCode: HttpStatus.forbidden,
+          body: {'message': 'Access denied. You do not manage this user.'},
+        );
+      }
+    }
 
-    await userCol.updateOne(
-      where.id(user['_id'] as ObjectId),
-      modify.set('isBlocked', newBlocked).set('updatedAt', DateTime.now().toUtc()),
-    );
+    final userMap = Map<String, dynamic>.from(user);
+    userMap.remove('password');
+    userMap.remove('otp');
+    userMap.remove('otpExpire');
 
-    final updated = await userCol.findOne(where.id(user['_id'] as ObjectId));
-    final sanitizedUser = sanitizeMongoData(updated ?? user) as Map<String, dynamic>;
+    if (userMap['occupationId'] != null) {
+      final occCol = MongoClient.instance.collection('occupations');
+      final occObjId = ModelHelpers.toObjectId(userMap['occupationId'].toString());
+      final occDoc = await occCol.findOne(occObjId != null ? where.id(occObjId) : where.eq('_id', userMap['occupationId']));
+      if (occDoc != null) {
+        userMap['occupationId'] = occDoc;
+      }
+    }
+
+    final sanitizedUser = sanitizeMongoData(userMap) as Map<String, dynamic>;
 
     return Response.json(
       body: {
-        'message': 'User ${newBlocked ? "blocked" : "unblocked"} successfully',
+        'success': true,
         'user': sanitizedUser,
       },
     );
   } catch (error) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,
-      body: {'message': 'Server error', 'error': error.toString()},
+      body: {'message': 'Server Error', 'error': error.toString()},
     );
   }
 }

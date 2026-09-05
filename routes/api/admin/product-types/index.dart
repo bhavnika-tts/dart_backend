@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
+import 'package:dart_frog_backend/models/model_helpers.dart';
 import 'package:dart_frog_backend/models/product_type.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
@@ -16,7 +17,6 @@ Future<Response> onRequest(RequestContext context) async {
         body: {
           'success': true,
           'data': mapped,
-          'product_types': mapped,
         },
       );
     } catch (e) {
@@ -30,27 +30,68 @@ Future<Response> onRequest(RequestContext context) async {
   if (context.request.method == HttpMethod.post) {
     final authHeader = context.request.headers['authorization'];
     final claims = JwtService.instance.verifyAuthHeader(authHeader);
-    if (claims == null || claims.role != 'superadmin') {
+    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin' && claims.role != 'admin')) {
       return Response.json(
         statusCode: HttpStatus.forbidden,
-        body: {'message': 'Superadmin access required'},
+        body: {'message': 'Admin access required'},
       );
     }
 
     try {
       final body = await context.request.json() as Map<String, dynamic>;
-      final result = await col.insertOne(body);
+      final name = body['name']?.toString().trim() ?? '';
+      if (name.isEmpty) {
+        return Response.json(
+          statusCode: HttpStatus.badRequest,
+          body: {'message': 'Category name is required'},
+        );
+      }
+
+      final modelName = name
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]+(.)'), '')
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+
+      final existing = await col.findOne({
+        '\$or': [
+          {'name': {'\$regex': '^$name\$', '\$options': 'i'}},
+          {'modelName': {'\$regex': '^$modelName\$', '\$options': 'i'}},
+        ],
+      });
+
+      if (existing != null) {
+        return Response.json(
+          statusCode: HttpStatus.badRequest,
+          body: {'message': 'A category with this name already exists'},
+        );
+      }
+
+      final doc = <String, dynamic>{
+        'name': name,
+        'modelName': modelName.isNotEmpty ? modelName : name.toLowerCase(),
+        'createdAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      };
+      final res = await col.insertOne(doc);
+
       return Response.json(
+        statusCode: HttpStatus.created,
         body: {
+          'message': 'Category created successfully',
           'success': true,
-          'message': 'Product type created',
-          'id': result.id.toString(),
+          'data': {
+            '_id': res.id.toString(),
+            'name': name,
+            'modelName': doc['modelName'],
+            'createdAt': ModelHelpers.toIsoString(doc['createdAt'] as DateTime),
+            'updatedAt': ModelHelpers.toIsoString(doc['updatedAt'] as DateTime),
+          },
         },
       );
     } catch (e) {
       return Response.json(
         statusCode: HttpStatus.internalServerError,
-        body: {'message': 'Failed to create product type', 'error': e.toString()},
+        body: {'message': 'Server error!', 'error': e.toString()},
       );
     }
   }

@@ -3,6 +3,7 @@ import 'package:dart_frog/dart_frog.dart';
 import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
 import 'package:dart_frog_backend/models/brand_model.dart';
+import 'package:dart_frog_backend/models/model_helpers.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
@@ -27,10 +28,7 @@ Future<Response> onRequest(RequestContext context) async {
       final mapped = list.map((doc) => BrandModel.fromBson(doc).toJson()).toList();
       return Response.json(
         body: {
-          'success': true,
           'entries': mapped,
-          'data': mapped,
-          'brands': mapped,
         },
       );
     } catch (e) {
@@ -44,7 +42,7 @@ Future<Response> onRequest(RequestContext context) async {
   if (context.request.method == HttpMethod.post) {
     final authHeader = context.request.headers['authorization'];
     final claims = JwtService.instance.verifyAuthHeader(authHeader);
-    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin')) {
+    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin' && claims.role != 'admin')) {
       return Response.json(
         statusCode: HttpStatus.forbidden,
         body: {'message': 'Admin access required'},
@@ -53,21 +51,61 @@ Future<Response> onRequest(RequestContext context) async {
 
     try {
       final body = await context.request.json() as Map<String, dynamic>;
-      final result = await col.insertOne(body);
+      final productType = body['productType']?.toString().trim().toLowerCase() ?? '';
+      final brand = body['brand']?.toString().trim() ?? '';
+      final models = (body['models'] as List?)?.map((e) => e.toString()).toList() ?? [];
+      final displayOrder = int.tryParse(body['displayOrder']?.toString() ?? '999') ?? 999;
+
+      if (productType.isEmpty || brand.isEmpty) {
+        return Response.json(
+          statusCode: HttpStatus.badRequest,
+          body: {'message': 'productType and brand are required'},
+        );
+      }
+
+      final existing = await col.findOne({
+        'productType': productType,
+        'brand': brand,
+      });
+
+      if (existing != null) {
+        return Response.json(
+          statusCode: HttpStatus.conflict,
+          body: {'message': "Brand '$brand' already exists for type '$productType'."},
+        );
+      }
+
+      final doc = <String, dynamic>{
+        'productType': productType,
+        'brand': brand,
+        'models': models,
+        'displayOrder': displayOrder,
+        'isActive': true,
+        'createdAt': DateTime.now(),
+        'updatedAt': DateTime.now(),
+      };
+      final res = await col.insertOne(doc);
+
       return Response.json(
+        statusCode: HttpStatus.created,
         body: {
-          'success': true,
-          'message': 'Brand created',
-          'id': result.id.toString(),
+          'message': 'Brand created successfully',
+          'entry': {
+            '_id': res.id.toString(),
+            ...doc,
+            'createdAt': ModelHelpers.toIsoString(doc['createdAt'] as DateTime),
+            'updatedAt': ModelHelpers.toIsoString(doc['updatedAt'] as DateTime),
+          },
         },
       );
     } catch (e) {
       return Response.json(
         statusCode: HttpStatus.internalServerError,
-        body: {'message': 'Failed to create brand', 'error': e.toString()},
+        body: {'message': 'Server error', 'error': e.toString()},
       );
     }
   }
 
   return Response(statusCode: HttpStatus.methodNotAllowed);
 }
+

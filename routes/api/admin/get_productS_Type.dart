@@ -97,7 +97,6 @@ Future<Response> onRequest(RequestContext context) async {
 
     return Response.json(
       body: {
-        'success': true,
         'message': 'Product types fetched successfully',
         'data': finalData,
       },

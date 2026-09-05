@@ -1,4 +1,5 @@
 import 'package:mongo_dart/mongo_dart.dart';
+import 'package:universal_date_parser/universal_date_parser.dart';
 
 /// Helper utilities for JSON and BSON serialization across all models.
 class ModelHelpers {
@@ -34,7 +35,7 @@ class ModelHelpers {
     return null;
   }
 
-  /// Parses date values from DateTime, ISO string, or milliseconds timestamp.
+  /// Parses date values from DateTime, ISO string, milliseconds timestamp, or universal date format.
   static DateTime? parseDateTime(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -42,12 +43,22 @@ class ModelHelpers {
       return DateTime.fromMillisecondsSinceEpoch(value);
     }
     if (value is String && value.isNotEmpty) {
-      return DateTime.tryParse(value);
+      try {
+        return value.tryParseDate() ?? DateTime.tryParse(value);
+      } catch (_) {
+        return DateTime.tryParse(value);
+      }
     }
     if (value is Map && value.containsKey(r'$date')) {
       final dateVal = value[r'$date'];
       if (dateVal is int) return DateTime.fromMillisecondsSinceEpoch(dateVal);
-      if (dateVal is String) return DateTime.tryParse(dateVal);
+      if (dateVal is String) {
+        try {
+          return dateVal.tryParseDate() ?? DateTime.tryParse(dateVal);
+        } catch (_) {
+          return DateTime.tryParse(dateVal);
+        }
+      }
     }
     return null;
   }
@@ -55,6 +66,24 @@ class ModelHelpers {
   /// Converts DateTime to standard ISO-8601 string matching JavaScript toISOString().
   static String? toIsoString(DateTime? dt) {
     return dt?.toUtc().toIso8601String();
+  }
+
+  /// Formats any date input (DateTime, String, timestamp) using universal_date_parser.
+  static String formatDate(dynamic value, {String outputDateFormat = 'dd/MM/yyyy HH:mm'}) {
+    if (value == null) return '';
+    if (value is String) {
+      return value.formatDate(outputDateFormat: outputDateFormat);
+    }
+    if (value is DateTime) {
+      return UniversalDateParser.format(value.toIso8601String(), outputDateFormat: outputDateFormat);
+    }
+    if (value is int) {
+      return UniversalDateParser.format(
+        DateTime.fromMillisecondsSinceEpoch(value).toIso8601String(),
+        outputDateFormat: outputDateFormat,
+      );
+    }
+    return value.toString();
   }
 
   /// Safely parse numbers (int, double, string) to double

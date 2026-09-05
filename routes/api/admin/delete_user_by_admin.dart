@@ -7,30 +7,24 @@ import 'package:dart_frog_backend/utils/mongo_sanitizer.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 
 Future<Response> onRequest(RequestContext context) async {
-  if (context.request.method != HttpMethod.post) {
+  if (context.request.method != HttpMethod.delete) {
     return Response(statusCode: HttpStatus.methodNotAllowed);
   }
 
   try {
     final authHeader = context.request.headers['authorization'];
     final claims = JwtService.instance.verifyAuthHeader(authHeader);
-    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin' && claims.role != 'admin')) {
+    if (claims == null || (claims.role != 'superadmin' && claims.role != 'subadmin')) {
       return Response.json(
-        statusCode: HttpStatus.forbidden,
-        body: {'message': 'Admin access required'},
+        statusCode: HttpStatus.unauthorized,
+        body: {'message': 'Unauthorized'},
       );
     }
 
     final query = context.request.uri.queryParameters;
-    String userId = query['userId']?.toString().trim() ?? '';
-    if (userId.isEmpty) {
-      try {
-        final body = await context.request.json() as Map<String, dynamic>;
-        userId = body['userId']?.toString().trim() ?? '';
-      } catch (_) {}
-    }
+    final userId = query['userId'];
 
-    if (userId.isEmpty) {
+    if (userId == null || userId.isEmpty) {
       return Response.json(
         statusCode: HttpStatus.badRequest,
         body: {'message': 'User ID is required'},
@@ -48,27 +42,32 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final currentBlocked = user['isBlocked'] == true;
-    final newBlocked = !currentBlocked;
+    final isDeleted = user['isDeleted'] == true;
+    final newDeleted = !isDeleted;
 
     await userCol.updateOne(
       where.id(user['_id'] as ObjectId),
-      modify.set('isBlocked', newBlocked).set('updatedAt', DateTime.now().toUtc()),
+      modify.set('isDeleted', newDeleted).set('updatedAt', DateTime.now().toUtc()),
     );
 
     final updated = await userCol.findOne(where.id(user['_id'] as ObjectId));
-    final sanitizedUser = sanitizeMongoData(updated ?? user) as Map<String, dynamic>;
+    final updatedMap = Map<String, dynamic>.from(updated ?? user);
+    updatedMap.remove('password');
+    updatedMap.remove('otp');
+    updatedMap.remove('otpExpire');
+
+    final sanitizedUser = sanitizeMongoData(updatedMap) as Map<String, dynamic>;
 
     return Response.json(
       body: {
-        'message': 'User ${newBlocked ? "blocked" : "unblocked"} successfully',
+        'message': 'User soft-deleted successfully',
         'user': sanitizedUser,
       },
     );
   } catch (error) {
     return Response.json(
       statusCode: HttpStatus.internalServerError,
-      body: {'message': 'Server error', 'error': error.toString()},
+      body: {'message': 'Server error!', 'error': error.toString()},
     );
   }
 }

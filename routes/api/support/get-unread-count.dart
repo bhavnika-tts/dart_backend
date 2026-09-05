@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
 import 'package:dart_frog_backend/services/admin_service.dart';
 
@@ -18,12 +19,15 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final chats = await AdminService.instance.getAllSupportChats(status: 'open');
+    final supportCol = MongoClient.instance.collection('supportchats');
+    final count = await supportCol.count({
+      'unreadCount': {'\$gt': 0},
+    });
 
     return Response.json(
       body: {
-        'success': true,
-        'unreadCount': chats.length,
+        'message': 'Unread count fetched',
+        'count': count,
       },
     );
   } catch (error) {

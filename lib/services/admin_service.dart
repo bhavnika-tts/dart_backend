@@ -70,15 +70,23 @@ class AdminService {
       tokenVersion: admin.tokenVersion,
     );
 
-    final perms = await _adminRepo.getAdminPermissions(admin.id!);
+    dynamic permissions;
+    if (admin.role == 'subadmin') {
+      final perms = await _adminRepo.getAdminPermissions(admin.id!);
+      permissions = perms != null
+          ? {
+              ...perms.permissions.map((k, v) => MapEntry(k, v.toMap())),
+              'assigned_access_codes': perms.assignedAccessCodes,
+            }
+          : null;
+    }
 
     return {
-      'message': 'Login successful',
       'token': token,
-      'admin': {
-        ...admin.toJson(),
-        'permissions': perms?.permissions.map((k, v) => MapEntry(k, v.toMap())) ?? {},
-      },
+      'name': admin.username,
+      'email': admin.email,
+      'role': admin.role,
+      'permissions': permissions,
     };
   }
 

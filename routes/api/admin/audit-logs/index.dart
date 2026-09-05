@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:dart_frog_backend/core/db/mongo_client.dart';
 import 'package:dart_frog_backend/core/security/jwt_service.dart';
 import 'package:dart_frog_backend/repositories/admin_repository.dart';
 
@@ -19,16 +20,25 @@ Future<Response> onRequest(RequestContext context) async {
     }
 
     final query = context.request.uri.queryParameters;
-    final limit = int.tryParse(query['limit'] ?? '100') ?? 100;
+    final limit = int.tryParse(query['limit'] ?? '20') ?? 20;
     final page = int.tryParse(query['page'] ?? '1') ?? 1;
+
+    final col = MongoClient.instance.collection('adminauditlogs');
+    final total = await col.count();
+    final totalPages = (total / limit).ceil();
 
     final logs = await AdminRepository.instance.getAuditLogs(limit: limit, page: page);
 
     return Response.json(
       body: {
         'success': true,
-        'count': logs.length,
         'logs': logs.map((l) => l.toJson()).toList(),
+        'pagination': {
+          'total': total,
+          'page': page,
+          'limit': limit,
+          'totalPages': totalPages,
+        },
       },
     );
   } catch (error) {

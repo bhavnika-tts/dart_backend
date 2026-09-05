@@ -19,10 +19,7 @@ Future<Response> onRequest(RequestContext context) async {
     final signed = ImageKitService.instance.signImageKitUrls(banners);
 
     return Response.json(
-      body: {
-        'success': true,
-        'banners': signed,
-      },
+      body: signed,
     );
   } catch (error) {
     return Response.json(
